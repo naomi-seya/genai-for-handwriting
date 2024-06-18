@@ -34,7 +34,7 @@ def generate_answer(query, data):
     if "submitted" in query and "data" in query:
         return f"Currently, {len(data)} data entries have been submitted."
     elif "email" in query:
-        emails = [d["email"] for d in data]
+        emails = [d["email"] for d in data if "email" in d]
         return "The registered email addresses are:\n" + "\n".join(emails)
     else:
         return "Sorry, I cannot provide an answer to that question."
@@ -72,7 +72,7 @@ def generate_image(model_id, body):
         raise ImageError(f"Image generation error. Error code is {finish_reason}")
 
 
-    logger.info("Successfully generated image withvthe SDXL 1.0 model %s", model_id)
+    logger.info("Successfully generated image with the SDXL 1.0 model %s", model_id)
 
     return image_bytes
 
@@ -180,3 +180,31 @@ def extract_text_from_image(image):
 if __name__ == "__main__":
     data = []
     main()
+
+# index.htmlファイルを生成する
+html_string = '''
+<html>
+  <head>
+    <title>Streamlit App</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/streamlit-component-lib@1.0.0/dist/index.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const root = document.getElementById('root');
+      const root_props = {
+        "args": {},
+        "componentType": "main"
+      };
+      const component = StreamlitProvider.createComponentInstance(root_props);
+      component.renderComponent(root);
+    </script>
+  </body>
+</html>
+'''
+
+# index.htmlファイルを書き出す
+with open('index.html', 'w', encoding='utf-8') as f:
+    f.write(html_string)
