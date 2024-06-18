@@ -76,7 +76,7 @@ def generate_image(model_id, body):
 
     return image_bytes
 
-def app():
+def main():
     st.title("Transcribe App")
 
     # Top page
@@ -179,4 +179,4 @@ def extract_text_from_image(image):
 
 if __name__ == "__main__":
     data = []
-    app()
+    main()
