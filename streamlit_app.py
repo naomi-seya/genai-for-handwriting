@@ -19,7 +19,25 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # BedrockモデルのモデルIDを設定
-BEDROCK_MODEL_ID = 'anthropic.claude-3-sonnet-20240229-v1:0'
+BEDROCK_MODEL_ID = 'YOUR_BEDROCK_MODEL_ID'
+
+def generate_answer(query, data):
+    """
+    Generate an answer from the registered data based on the given query.
+    Args:
+        query (str): The user's query.
+        data (list): The list of registered data.
+    Returns:
+        answer (str): The generated answer.
+    """
+    # Generate answer from data
+    if "submitted" in query and "data" in query:
+        return f"Currently, {len(data)} data entries have been submitted."
+    elif "email" in query:
+        emails = [d["email"] for d in data]
+        return "The registered email addresses are:\n" + "\n".join(emails)
+    else:
+        return "Sorry, I cannot provide an answer to that question."
 
 def generate_image(model_id, body):
     """
@@ -128,7 +146,7 @@ def chat_bot_page():
     query = st.text_input("Enter your question")
 
     if st.button("Ask"):
-        answer = get_answer_from_chatbot(query, data)
+        answer = generate_answer(query, data)
         st.write(answer)
 
     # Page navigation buttons
@@ -160,19 +178,9 @@ def extract_text_from_image(image):
 
     return extracted_text
 
-# Function to generate chatbot answer
-def get_answer_from_chatbot(query, data):
-    # Generate answer from data
-    # (This is a simple example; in real applications, you should implement appropriate logic)
-    if "submitted" in query and "data" in query:
-        return f"Currently, {len(data)} data entries have been submitted."
-    elif "email" in query:
-        emails = [d["email"] for d in data]
-        return "The registered email addresses are:\n" + "\n".join(emails)
-    else:
-        return "Sorry, I cannot provide an answer to that question."
-
 if __name__ == "__main__":
     data = [] # データを格納するリストを初期化
+
+    # Streamlitアプリを起動
     app()
 
