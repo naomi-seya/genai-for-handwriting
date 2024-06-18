@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # BedrockモデルのモデルIDを設定
-BEDROCK_MODEL_ID = 'YOUR_BEDROCK_MODEL_ID'
+BEDROCK_MODEL_ID = 'anthropic.claude-3-sonnet-20240229-v1:0'
 
 def generate_answer(query, data):
     """
