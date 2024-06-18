@@ -76,7 +76,6 @@ def generate_image(model_id, body):
 
     return image_bytes
 
-# Streamlit app
 def app():
     st.title("Transcribe App")
 
@@ -179,8 +178,5 @@ def extract_text_from_image(image):
     return extracted_text
 
 if __name__ == "__main__":
-    data = [] # データを格納するリストを初期化
-
-    # Streamlitアプリを起動
+    data = []
     app()
-
