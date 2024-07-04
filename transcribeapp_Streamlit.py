@@ -1,159 +1,79 @@
-import os
+import streamlit as st
+import requests
+import pandas as pd
 from io import BytesIO
 
-import boto3
-import pandas as pd
-import streamlit as st
-from PIL import Image
+# Bedrockのエンドポイントと認証情報
+BEDROCK_ENDPOINT = "https://your-bedrock-endpoint.aws.amazon.com"
+BEDROCK_API_KEY = "your-bedrock-api-key"
 
-# Amazon Bedrock ClientをInitialize
-bedrock = boto3.client("bedrock")
+# Lambda関数のエンドポイント
+LAMBDA_ENDPOINT = "https://your-lambda-endpoint.aws.amazon.com/prod"
 
-# アップロードされたファイルを保持するリスト
-uploaded_files = []
+# データ保存用
+data = []
 
-# 関数の定義
-def upload_page():
-    st.title("Upload Handwritten Document")
-    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "png"])
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption=f"Uploaded Image", use_column_width=True)
+# タイトル
+st.title("手書き内容デジタル化アプリ")
 
-        # Amazon Bedrock に Image を送信
-        response = bedrock.detect_document_text(
-            Document={"Bytes": uploaded_file.getvalue()}
-        )
+# 機能1: 手書き用紙の写真データをアップロードするページ
+st.header("1. 手書き用紙の写真をアップロード")
+uploaded_file = st.file_uploader("写真をアップロードしてください", type=["jpg", "png"])
 
-        # Bedrockから抽出したデータ
-        entities = {
-            "company": [
-                item["Text"]
-                for item in response["Blocks"]
-                if item["BlockType"] == "WORD" and "企業名" in item["Text"]
-            ],
-            "department": [
-                item["Text"]
-                for item in response["Blocks"]
-                if item["BlockType"] == "WORD" and "部署名" in item["Text"]
-            ],
-            "email": [
-                item["Text"]
-                for item in response["Blocks"]
-                if item["BlockType"] == "WORD" and "@" in item["Text"]
-            ],
-            "phone": [
-                item["Text"]
-                for item in response["Blocks"]
-                if item["BlockType"] == "WORD"
-                and any(char.isdigit() for char in item["Text"])
-            ],
-            "content": " ".join(
-                [
-                    item["Text"]
-                    for item in response["Blocks"]
-                    if item["BlockType"] == "LINE"
-                ]
-            ),
-        }
+if uploaded_file:
+    # Lambdaに画像を送信してテキストを抽出
+    files = {"file": uploaded_file.getvalue()}
+    response = requests.post(LAMBDA_ENDPOINT, files=files)
+    output = response.json()
 
-        if st.button("Upload"):
-            uploaded_files.append({"image": image, "entities": entities})
-            st.success(f"File uploaded successfully!")
+    # 機能2: アップロードされた写真とBedrockから返信されたテキスト内容を表示
+    st.header("2. 手書き内容の確認・修正")
+    st.image(uploaded_file, caption="アップロードされた写真")
+    st.write("Bedrockから抽出されたテキスト:")
+    extracted_text = st.text_area("手書き内容", output["extracted_text"])
 
-def check_page():
-    st.title("Check and Modify Extracted Text")
-    if uploaded_files:
-        for file in uploaded_files:
-            st.image(file["image"], use_column_width=True)
-            st.write("Extracted Entities:")
-            entities = file["entities"]
-            entities["company"] = st.text_area(
-                "Company", "\n".join(entities["company"])
-            )
-            entities["department"] = st.text_area(
-                "Department", "\n".join(entities["department"])
-            )
-            entities["email"] = st.text_area("Email", "\n".join(entities["email"]))
-            entities["phone"] = st.text_area("Phone", "\n".join(entities["phone"]))
-            entities["content"] = st.text_area("Content", entities["content"])
-            if st.button("Checked"):
-                file["entities"] = {
-                    "company": [
-                        e.strip() for e in entities["company"].split("\n") if e.strip()
-                    ],
-                    "department": [
-                        e.strip()
-                        for e in entities["department"].split("\n")
-                        if e.strip()
-                    ],
-                    "email": [
-                        e.strip() for e in entities["email"].split("\n") if e.strip()
-                    ],
-                    "phone": [
-                        e.strip() for e in entities["phone"].split("\n") if e.strip()
-                    ],
-                    "content": entities["content"],
-                }
-                st.success("Data checked and updated!")
-    else:
-        st.warning("No files uploaded yet.")
+    # 企業名、部署名、メールアドレス、電話番号を入力
+    company_name = st.text_input("企業名", output.get("company_name", ""))
+    department_name = st.text_input("部署名", output.get("department_name", ""))
+    email = st.text_input("メールアドレス", output.get("email", ""))
+    phone_number = st.text_input("電話番号", output.get("phone_number", ""))
 
-def view_page():
-    st.title("View Checked Data")
-    if uploaded_files:
-        data = []
-        for file in uploaded_files:
-            entities = file["entities"]
-            for company in entities["company"]:
-                for department in entities["department"]:
-                    for email in entities["email"]:
-                        for phone in entities["phone"]:
-                            data.append(
-                                {
-                                    "Company": company,
-                                    "Department": department,
-                                    "Email": email,
-                                    "Phone": phone,
-                                    "Content": entities["content"],
-                                }
-                            )
-        df = pd.DataFrame(data)
-        st.dataframe(df)
+    if st.button("Checked"):
+        # データを保存
+        data.append({
+            "image": uploaded_file,
+            "text": extracted_text,
+            "company_name": company_name,
+            "department_name": department_name,
+            "email": email,
+            "phone_number": phone_number
+        })
+        st.success("データが登録されました。")
 
-        csv = df.to_csv().encode("utf-8")
-        excel = BytesIO()
-        writer = pd.ExcelWriter(excel, engine="xlsxwriter")
-        df.to_excel(writer, index=False, sheet_name="Sheet1")
-        writer.save()
-        excel.seek(0)
+# 機能3: 登録データ一覧を表示
+st.header("3. 登録データ一覧")
+df = pd.DataFrame(data)
+st.write(df)
 
-        if st.button("Extract"):
-            st.download_button(
-                label="Download Excel file",
-                data=excel.getvalue(),
-                file_name="data.xlsx",
-                mime="application/vnd.ms-excel",
-            )
-    else:
-        st.warning("No data to display.")
+# データをエクセルで抽出
+if st.button("Extract"):
+    csv = df.to_csv(index=False)
+    b = BytesIO(csv.encode())
+    st.download_button(
+        label="データをダウンロード",
+        data=b,
+        file_name="data.csv",
+        mime="text/csv",
+    )
 
-def chat_page():
-    st.title("Chat with Bedrock")
-    query = st.text_area("Enter your query")
-    if st.button("Submit"):
-        # Amazon Bedrock に質問を送信し、回答を取得する処理を記述する必要があります。
-        # 回答の生成にはアップロードされたデータを参照する必要があります。
-        response = "この部分は回答を生成する処理を記述する必要があります。"
-        st.write(response)
+# 機能4: チャットボット
+st.header("4. チャットボット")
+query = st.text_input("質問を入力してください")
 
-# ページ選択
-pages = {
-    "Upload": upload_page,
-    "Check": check_page,
-    "View": view_page,
-    "Chat": chat_page,
-}
+if query:
+    headers = {"x-api-key": BEDROCK_API_KEY}
+    data = {"query": query, "data": df.to_dict("records")}
+    response = requests.post(BEDROCK_ENDPOINT, headers=headers, json=data)
+    answer = response.json()["answer"]
+    st.write("回答:", answer)
 
-selection = st.sidebar.radio("Go to", list(pages.keys()))
-pages[selection]()
